@@ -43,7 +43,8 @@ class CharacterLevelPreparer(BasePreparer):
         """
         super().prepare_messages(messages)
         messages = [[char.lower() for char in message if char.lower() in self.sample_to_index] for message in messages]
-        messages = [prepare_sentence(message, **config.tokens, max_len=config.max_sequence_length)
+        messages = [prepare_sentence(message, end_token=config.end_token, pad_token=config.pad_token,
+                                     max_len=config.max_sequence_length)
                     for message in messages]
         messages = np.array(map_char_sentences_to_index(messages, self.sample_to_index))
 

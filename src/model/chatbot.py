@@ -28,9 +28,12 @@ class Chatbot(object):
 
         self.filter = CharacterLevelFilter()
 
-        self.model = Seq2SeqModel(config.hidden_units, config.max_sequence_length + 2, config.max_sequence_length + 1,
-                                  vocab_size=len(vocabulary), learning_rate=config.learning_rate,
-                                  embedding_size=config.embedding_size)
+        self.model = Seq2SeqModel(config.hidden_units, config.max_sequence_length + 1, config.max_sequence_length + 1,
+                                  learning_rate=config.learning_rate,
+                                  start_token_idx=config.vocabulary.index(config.start_token),
+                                  end_token_idx=config.vocabulary.index(config.end_token),
+                                  vocab_size=len(vocabulary), embedding_size=config.embedding_size,
+                                  beam_width=config.beam_width, cell_type=config.cell_type, optimizer=config.optimizer)
         self.session = tf.Session()
 
     def save(self):
@@ -52,6 +55,8 @@ class Chatbot(object):
         input_sequences, target_sequences = self.filter.filter_data(data)
         del data
 
+        input_sequences_length = np.array([min(len(sentence), config.max_sequence_length)
+                                           for sentence in input_sequences])
         input_sequences = self.preparer.prepare_messages(input_sequences)
         target_sequences_length = np.array([min(len(sentence), config.max_sequence_length)
                                             for sentence in target_sequences])
@@ -72,12 +77,15 @@ class Chatbot(object):
                 batch_end = min((batch_index + 1) * config.batch_size, input_sequences.shape[0])
 
                 if batch_begin < batch_end:
-                    prep_input = input_sequences[batch_begin:batch_end, :].T
-                    prep_target = target_sequences[batch_begin:batch_end, :].T
+                    prep_input = input_sequences[batch_begin:batch_end, :]
+                    prep_target = target_sequences[batch_begin:batch_end, :]
 
                     loss, prediction_train = self.model.train_on_batch(
-                        self.session, input_batch=prep_input, target_batch=prep_target,
-                        target_length=target_sequences_length[batch_begin:batch_end] + 1
+                        self.session,
+                        input_batch=prep_input,
+                        input_lengths=input_sequences_length[batch_begin:batch_end] + 1,
+                        target_batch=prep_target,
+                        target_lengths=target_sequences_length[batch_begin:batch_end] + 1
                     )
 
             self.save()
@@ -87,9 +95,11 @@ class Chatbot(object):
             print('Epoch: {}; loss: {:0.3f}; time[min]: {:0.1f}'.format(epoch, loss, elapsed_time))
 
             if config.test_messages:
-                test_messages = np.array(self.preparer.prepare_messages(config.test_messages)).T
-                prediction_probabilities = self.model.infer_on_batch(self.session, input_batch=test_messages)
-                indices = np.argmax(prediction_probabilities, axis=2)
+                test_messages_lengths = np.array([min(len(sentence), config.max_sequence_length)
+                                                  for sentence in config.test_messages])
+                test_messages = np.array(self.preparer.prepare_messages(config.test_messages))
+                indices = self.model.infer_on_batch(self.session, input_batch=test_messages,
+                                                    input_lengths=test_messages_lengths)
                 replies = self.preparer.prepare_replies(indices)
 
                 for message, reply in zip(config.test_messages, replies):
@@ -102,10 +112,10 @@ class Chatbot(object):
         :param message: Message to the Chatbot.
         :returns: Reply to the message.
         """
-        input_batch = np.array(self.preparer.prepare_messages([message])).T
+        input_lengths = np.array([min(len(message), config.max_sequence_length)])
+        input_batch = np.array(self.preparer.prepare_messages([message]))
 
-        prediction_probabilities = self.model.infer_on_batch(self.session, input_batch)
-        predictions = np.argmax(np.array(prediction_probabilities)[0:1, :, :], axis=2)
+        predictions = self.model.infer_on_batch(self.session, input_batch, input_lengths)
 
         reply = self.preparer.prepare_replies(predictions)
 

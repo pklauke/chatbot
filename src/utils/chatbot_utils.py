@@ -2,10 +2,10 @@
 # -*- coding: utf-8 -*-
 
 
-def prepare_sentence(sentence, start_token='$', end_token='#', pad_token='^', max_len=40):
+def prepare_sentence(sentence, end_token='#', pad_token='^', max_len=40):
     """Prepares a sentence. Clips it to the given maximum length and adds start, end and padding tokens.
 
-    Prepared sentence will have length `max_len`+2.
+    Prepared sentence will have length `max_len`+1.
 
     :param sentence: Sentence to prepare.
     :param start_token: Start token to start each sentence with.
@@ -14,10 +14,10 @@ def prepare_sentence(sentence, start_token='$', end_token='#', pad_token='^', ma
     :param max_len: Maximum Sentence length. Longer sentences are clipped. Padding tokens are added if the sentence
                     is shorter. Start and end tokens aren't added to the sentence length.
     """
-    prepared_sentence = [start_token]
+    prepared_sentence = []
     prepared_sentence += sentence[:max_len]
     prepared_sentence += [end_token]
-    prepared_sentence += [pad_token] * (max_len+2-len(prepared_sentence))
+    prepared_sentence += [pad_token] * (max_len+1-len(prepared_sentence))
 
     return prepared_sentence
 

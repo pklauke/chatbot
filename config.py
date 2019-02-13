@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 cell_type = 'lstm'  # possible values: 'lstm', 'gru', 'rnn'
-hidden_units = [128, 128]
+hidden_units = [64, 64]
+beam_width = 3
 
 dataset_filename = '__data__/data.feather'
 
